@@ -1,0 +1,111 @@
+// Schema do SiNutre - segue o modelo descrito em ../../modelo nutricional.puml
+// Para a aula, só User (login via GitHub) e Meal (cadastro de refeição) são exercitados,
+// mas o domínio completo é modelado aqui para refletir o PlantUML.
+//
+// Observação: o SQLite (via Prisma 5) não suporta enums. Os campos que no PlantUML
+// são GENDERCHOICE, MEALCHOICE e LEVELCHOICE ficam aqui como String e os valores
+// válidos são listados em src/constants/enums.ts e validados no controller.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int       @id @default(autoincrement())
+  githubId    String    @unique
+  githubLogin String    @unique
+  name        String
+  birthDate   DateTime? @map("birth_date")
+  avatarUrl   String?   @map("avatar_url")
+  gender      String    @default("NAO_ESPECIFICADO") // GENDERCHOICE
+  calorieGoal Int?      @map("calorie_goal")
+  weight      Float?
+  height      Float?
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  meals       Meal[]
+  foods       Food[]
+  weightLogs  WeightLog[]
+  healthData  HealthData[]
+
+  @@map("users")
+}
+
+model Meal {
+  id          Int       @id @default(autoincrement())
+  type        String    // MEALCHOICE
+  eatTime     DateTime  @map("eat_time")
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  userId      Int       @map("user_id")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  foods       MealFood[]
+
+  @@map("meals")
+}
+
+model Food {
+  id              Int        @id @default(autoincrement())
+  name            String
+  caloriesPer100g Float      @map("calories_per_100g")
+  carbsPer100g    Float      @map("carbs_per_100g")
+  proteinPer100g  Float      @map("protein_per_100g")
+  fatPer100g      Float      @map("fat_per_100g")
+
+  userId          Int        @map("user_id")
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  meals           MealFood[]
+
+  @@map("foods")
+}
+
+// Classe associativa Meal <-> Food (n para m)
+model MealFood {
+  mealId   Int   @map("meal_id")
+  foodId   Int   @map("food_id")
+  foodG    Float @map("food_g")
+  calories Float
+  carbs    Float
+  protein  Float
+  fat      Float
+
+  meal Meal @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  food Food @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@id([mealId, foodId])
+  @@map("meal_foods")
+}
+
+model WeightLog {
+  id        Int      @id @default(autoincrement())
+  height    Float
+  weight    Float
+  createdAt DateTime @default(now()) @map("created_at")
+
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("weight_logs")
+}
+
+model HealthData {
+  id               Int       @id @default(autoincrement())
+  targetDietDaily  Int       @map("target_diet_daily")
+  levelActivity    String    @map("level_activity") // LEVELCHOICE
+  createdAt        DateTime  @default(now()) @map("created_at")
+  closedAt         DateTime? @map("closed_at")
+  isActive         Boolean   @default(true) @map("is_active")
+
+  userId           Int       @map("user_id")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("health_data")
+}
